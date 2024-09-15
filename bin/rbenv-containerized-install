@@ -64,7 +64,7 @@ function detect-distribution() {
 function container-image-id() {
     local -r buildDir="$1"
 
-    container-tool build --quiet "$buildDir"
+    container-tool build --no-cache --quiet "$buildDir"
 }
 
 function rbenv-install-in-container() {
