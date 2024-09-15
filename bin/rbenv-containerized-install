@@ -74,7 +74,8 @@ function rbenv-install-in-container() {
         --user "$(id --user)":"$(id --group)" \
         --volume "$RBENV_ROOT":"$RBENV_ROOT" \
         --workdir "$RBENV_ROOT" \
-        --env RBENV_ROOT="$RBENV_ROOT" \
+        --env RBENV_ROOT \
+        --env RBENV_DEBUG \
         --interactive \
         --tty \
         "$imageId" \
