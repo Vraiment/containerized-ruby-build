@@ -16,4 +16,5 @@ RUN apt-get install --assume-yes \
     libgdbm6 \
     libgdbm-dev \
     libdb-dev \
-    uuid-dev
+    uuid-dev \
+    curl
