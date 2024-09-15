@@ -1,18 +1,109 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
-# Summary: One line, short description of a command
+# Summary: Install a Ruby version using ruby-build within a container
 #
-# Usage: rbenv COMMAND [--optional-flag] <required-argument>
+# Usage: rbenv containerized-install ...
 #
-# More thorough help text wrapped at 70 characters that spans
-# multiple lines until the end of the comment block.
+# This is the equivalent of running `rbenv install` within a container
+# with the needed dependency already built in, no need to install any
+# dependency other than Podman. Any arguments will be pass throgh to
+# the `ruby-build` command within the container.
 
-set -e
-[ -n "$RBENV_DEBUG" ] && set -x
+set -e # Exit immediately if a command exits with a non-zero status.
+set -o pipefail # Propagate exit code on a pipeline
+set -o nounset # Exit immdeiately if a variable is not set
+[ -n "${RBENV_DEBUG:-}" ] && set -x # Print commands and their arguments as they are executed.
 
-# Optional: Abort with usage line when called with invalid arguments
-# (replace COMMAND with the name of this command)
-if [ -z "$1" ]; then
-  rbenv-help --usage COMMAND >&2
-  exit 1
-fi
+function container-tool() {
+    "$CONTAINER_TOOL" "$@"
+}
+
+function detect-container-tooling() {
+    if [ -n "${CONTAINER_TOOL:-}" ]; then
+        echo Tool detected as "$CONTAINER_TOOL"
+    fi
+
+    echo Probing for podman...
+    if CONTAINER_TOOL="$(command -v podman)"; then
+        echo podman found as "$CONTAINER_TOOL"
+    else
+        echo podman not found!
+
+        echo Probing for docker...
+        if CONTAINER_TOOL="$(command -v docker)"; then
+            echo docker found as "$CONTAINER_TOOL"
+        else
+            echo docker not found!
+        fi
+    fi
+
+
+    readonly CONTAINER_TOOL
+
+    if [ -n "$CONTAINER_TOOL" ]; then
+        return 0
+    else
+        >&2 echo No container tooling found
+        return 1
+    fi
+}
+
+function detect-distribution() {
+    if [ -e /etc/lsb-release ]; then
+        # Use a subshell to source /etc/lsb-release and not leak the values sourced
+        (
+            # shellcheck source=/dev/null
+            source /etc/lsb-release
+            echo "$DISTRIB_ID"/"$DISTRIB_RELEASE"
+        )
+    else
+        echo ''
+    fi
+}
+
+function container-image-id() {
+    local -r buildDir="$1"
+
+    container-tool build --quiet "$buildDir"
+}
+
+function rbenv-install-in-container() {
+    local -r imageId="$1"; shift
+
+    container-tool run \
+        --user "$(id --user)":"$(id --group)" \
+        --volume "$RBENV_ROOT":"$RBENV_ROOT" \
+        --workdir "$RBENV_ROOT" \
+        --env RBENV_ROOT="$RBENV_ROOT" \
+        --interactive \
+        --tty \
+        "$imageId" \
+        "$RBENV_ROOT"/bin/rbenv install "$@"
+}
+
+function main() {
+    local distribution imageId
+
+    if ! detect-container-tooling; then
+        exit 1
+    fi
+
+    distribution="$(detect-distribution)"
+    readonly distribution
+
+    if [ -z "$distribution" ]; then
+        echo "Could not detect distribution"
+        return 1
+    fi
+
+    local -r definition=definitions/"$distribution"
+
+    echo Using defintion located at "$definition"
+
+    imageId="$(container-image-id "$definition")"
+    readonly imageId
+
+    rbenv-install-in-container "$imageId" "$@"
+}
+
+main "$@"
