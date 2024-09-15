@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#
+# Summary: One line, short description of a command
+#
+# Usage: rbenv COMMAND [--optional-flag] <required-argument>
+#
+# More thorough help text wrapped at 70 characters that spans
+# multiple lines until the end of the comment block.
+
+set -e
+[ -n "$RBENV_DEBUG" ] && set -x
+
+# Optional: Abort with usage line when called with invalid arguments
+# (replace COMMAND with the name of this command)
+if [ -z "$1" ]; then
+  rbenv-help --usage COMMAND >&2
+  exit 1
+fi
